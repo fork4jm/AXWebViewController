@@ -198,6 +198,9 @@ API_AVAILABLE(ios(7.0))
 ///
 /// @return a instance of `AXWebViewController`.
 - (instancetype)initWithRequest:(NSURLRequest *)request configuration:(WKWebViewConfiguration *)configuration;
+
+- (instancetype)initWithRequest:(NSURLRequest *)request cookieString:(NSString *)cookieString;
+
 #endif
 /// Get a instance of `AXWebViewController` by a HTML string and a base URL.
 ///
