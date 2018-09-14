@@ -238,10 +238,10 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
 
 - (void)initializer {
     // Set up default values.
-    _showsToolBar = YES;
-    _showsBackgroundLabel = YES;
-    _showsNavigationCloseBarButtonItem = YES;
-    _showsNavigationBackBarButtonItemTitle = YES;
+    _showsToolBar = NO;
+    _showsBackgroundLabel = NO;
+    _showsNavigationCloseBarButtonItem = NO;
+    _showsNavigationBackBarButtonItemTitle = NO;
     _checkUrlCanOpen = YES;
     _maxAllowedTitleLength = 10;
     
