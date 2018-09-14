@@ -25,10 +25,9 @@
 
 #import "AXWebViewController.h"
 #import "AXWebViewControllerActivity.h"
-#import <Aspects/Aspects.h>
 #import <objc/runtime.h>
 #import <StoreKit/StoreKit.h>
-#import <AXPracticalHUD/AXPracticalHUD.h>
+#import <JMLibrary/ProgressHUD.h>
 
 #ifndef AXWebViewControllerLocalizedString
 #define AXWebViewControllerLocalizedString(key, comment) \
@@ -307,6 +306,29 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
     }
     return self;
 }
+
+- (instancetype)initWithRequest:(NSURLRequest *)request cookieString:(NSString *)cookieString {
+    if (self = [self initWithRequest:request]) {
+        
+        NSMutableURLRequest * mutableURLRequest = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:request.URL.absoluteString]];
+        
+        [mutableURLRequest setValue:cookieString forHTTPHeaderField:@"Cookie"];
+        
+        _request = mutableURLRequest;
+        
+        WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
+        WKUserContentController *userContentController = [WKUserContentController new];
+        
+        // inject cookie
+        WKUserScript * cookieScript = [[WKUserScript alloc] initWithSource: [NSString stringWithFormat:@"document.cookie = '%@;path=/';",cookieString] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO];
+        [userContentController addUserScript:cookieScript];
+        configuration.userContentController = userContentController;
+        
+        _configuration = configuration;
+    }
+    return self;
+}
+
 #endif
 
 - (instancetype)initWithHTMLString:(NSString *)HTMLString baseURL:(NSURL *)baseURL {
@@ -552,6 +574,13 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
         } else {
             [_progressView setProgress:progress animated:NO];
         }
+        
+        if (fabs(progress - 1) < 0.01) {
+            [ProgressHUD dismissWithDelay:0.5];
+        } else if (fabs(progress) > 0.01) {
+            [ProgressHUD show];
+        }
+        
     } else if ([keyPath isEqualToString:@"backgroundColor"]) {
         // #if AX_WEB_VIEW_CONTROLLER_USING_WEBKIT
         /*
@@ -617,6 +646,13 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
     _webView.translatesAutoresizingMaskIntoConstraints = NO;
     if (_enabledWebViewUIDelegate) _webView.UIDelegate = self;
     _webView.navigationDelegate = self;
+    if ([[UIDevice currentDevice].systemVersion floatValue] >= 11.0) {
+        if (@available(iOS 11.0, *)) {
+            _webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+        } else {
+            // Fallback on earlier versions
+        }
+    }
     // Obverse the content offset of the scroll view.
     [_webView addObserver:self forKeyPath:@"scrollView.contentOffset" options:NSKeyValueObservingOptionNew context:NULL];
     // Obverse title. Fix issue: https://github.com/devedbox/AXWebViewController/issues/35
@@ -655,7 +691,7 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
 
 - (NSBundle *)resourceBundle{
     if (_resourceBundle) return _resourceBundle;
-    NSBundle *bundle = [NSBundle bundleForClass:AXWebViewController.class];
+    NSBundle *bundle = [NSBundle bundleForClass:[self class]];
     
     NSString *resourcePath = [bundle pathForResource:@"AXWebViewController" ofType:@"bundle"] ;
     
@@ -1009,14 +1045,7 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
 }
 
 - (void)didFinishLoad{
-#if AX_WEB_VIEW_CONTROLLER_USING_WEBKIT
-    @try {
-        [self hookWebContentCommitPreviewHandler];
-    } @catch (NSException *exception) {
-    } @finally {
-    }
-#endif
-    
+
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
     if (_navigationType == AXWebViewControllerNavigationBarItem) {
         [self updateNavigationItems];
@@ -1308,12 +1337,7 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
     // For appstore and system defines. This action will jump to AppStore app or the system apps.
     if ([[NSPredicate predicateWithFormat:@"SELF BEGINSWITH[cd] 'https://itunes.apple.com/' OR SELF BEGINSWITH[cd] 'mailto:' OR SELF BEGINSWITH[cd] 'tel:' OR SELF BEGINSWITH[cd] 'telprompt:'"] evaluateWithObject:components.URL.absoluteString]) {
         if ([[NSPredicate predicateWithFormat:@"SELF BEGINSWITH[cd] 'https://itunes.apple.com/'"] evaluateWithObject:components.URL.absoluteString] && !_reviewsAppInAppStore) {
-            [[AXPracticalHUD sharedHUD] showNormalInView:self.view.window text:nil detail:nil configuration:^(AXPracticalHUD *HUD) {
-                // Disabled the background touching lock to fix the
-                // issue: https://github.com/devedbox/AXWebViewController/issues/67
-                // HUD.lockBackground = YES;
-                HUD.removeFromSuperViewOnHide = YES;
-            }];
+            
             SKStoreProductViewController *productVC = [[SKStoreProductViewController alloc] init];
             productVC.delegate = self;
             NSError *error;
@@ -1324,19 +1348,16 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
                 NSRange range = NSMakeRange(result.range.location+2, result.range.length-2);
                 [productVC loadProductWithParameters:@{SKStoreProductParameterITunesItemIdentifier: @([[components.URL.absoluteString substringWithRange:range] integerValue])} completionBlock:^(BOOL result, NSError * _Nullable error) {
                     if (!result || error) {
-                        [[AXPracticalHUD sharedHUD] showErrorInView:self.view.window text:error.localizedDescription detail:nil configuration:^(AXPracticalHUD *HUD) {
-                            HUD.removeFromSuperViewOnHide = YES;
-                        }];
-                        [[AXPracticalHUD sharedHUD] hide:YES afterDelay:1.5 completion:NULL];
+                        [ProgressHUD showErrorWithStatus:error.localizedDescription];
                     } else {
-                        [[AXPracticalHUD sharedHUD] hide:YES afterDelay:0.5 completion:NULL];
+                        [ProgressHUD dismissWithDelay:0.5];
                     }
                 }];
                 [self presentViewController:productVC animated:YES completion:NULL];
                 decisionHandler(WKNavigationActionPolicyCancel);
                 return;
             } else {
-                [[AXPracticalHUD sharedHUD] hide:YES afterDelay:0.5 completion:NULL];
+                [ProgressHUD dismissWithDelay:0.5];
             }
         }
         if ([[UIApplication sharedApplication] canOpenURL:components.URL]) {
@@ -1472,9 +1493,9 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
     // For appstore.
     if ([[NSPredicate predicateWithFormat:@"SELF BEGINSWITH[cd] 'https://itunes.apple.com/' OR SELF BEGINSWITH[cd] 'mailto:' OR SELF BEGINSWITH[cd] 'tel:' OR SELF BEGINSWITH[cd] 'telprompt:'"] evaluateWithObject:request.URL.absoluteString]) {
         if ([[NSPredicate predicateWithFormat:@"SELF BEGINSWITH[cd] 'https://itunes.apple.com/'"] evaluateWithObject:components.URL.absoluteString] && !_reviewsAppInAppStore) {
-            [[AXPracticalHUD sharedHUD] showNormalInView:self.view.window text:nil detail:nil configuration:^(AXPracticalHUD *HUD) {
-                HUD.removeFromSuperViewOnHide = YES;
-            }];
+
+            [ProgressHUD show];
+            
             SKStoreProductViewController *productVC = [[SKStoreProductViewController alloc] init];
             productVC.delegate = self;
             NSError *error;
@@ -1485,19 +1506,16 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
                 NSRange range = NSMakeRange(result.range.location+2, result.range.length-2);
                 [productVC loadProductWithParameters:@{SKStoreProductParameterITunesItemIdentifier: @([[components.URL.absoluteString substringWithRange:range] integerValue])} completionBlock:^(BOOL result, NSError * _Nullable error) {
                     if (!result || error) {
-                        [[AXPracticalHUD sharedHUD] showErrorInView:self.view.window text:error.localizedDescription detail:nil configuration:^(AXPracticalHUD *HUD) {
-                            HUD.removeFromSuperViewOnHide = YES;
-                        }];
-                        [[AXPracticalHUD sharedHUD] hide:YES afterDelay:1.5 completion:NULL];
+                        [ProgressHUD showErrorWithStatus:error.localizedDescription];
                     } else {
-                        [[AXPracticalHUD sharedHUD] hide:YES afterDelay:0.5 completion:NULL];
+                        [ProgressHUD dismissWithDelay:0.5];
                     }
                 }];
                 [self presentViewController:productVC animated:YES completion:NULL];
                 decisionHandler(WKNavigationActionPolicyCancel);
                 return;
             } else {
-                [[AXPracticalHUD sharedHUD] hide:YES afterDelay:0.5 completion:NULL];
+                [ProgressHUD dismissWithDelay:0.5];
             }
         }
         if ([[UIApplication sharedApplication] canOpenURL:request.URL]) {
@@ -1509,7 +1527,6 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
         }
         return NO;
     } else if (![[NSPredicate predicateWithFormat:@"SELF MATCHES[cd] 'https' OR SELF MATCHES[cd] 'http' OR SELF MATCHES[cd] 'file' OR SELF MATCHES[cd] 'about'"] evaluateWithObject:components.scheme]) {// For any other schema.
-        
         
         if (@available(iOS 8.0, *)) { // openURL if ios version is low then 8 , app will crash
             if (!self.checkUrlCanOpen || [[UIApplication sharedApplication] canOpenURL:components.URL]) {
@@ -1849,82 +1866,6 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
     } else {
         self.navigationController.interactivePopGestureRecognizer.enabled = YES;
         [self.navigationItem setLeftBarButtonItems:nil animated:NO];
-    }
-}
-
-- (void)hookWebContentCommitPreviewHandler {
-    // Find the `WKContentView` in the webview.
-    __weak typeof(self) wself = self;
-    for (UIView *_view in _webView.scrollView.subviews) {
-        if ([_view isKindOfClass:NSClassFromString(@"WKContentView")]) {
-            id _previewItemController = object_getIvar(_view, class_getInstanceVariable([_view class], "_previewItemController"));
-            Class _class = [_previewItemController class];
-            SEL _performCustomCommitSelector = NSSelectorFromString(@"previewInteractionController:interactionProgress:forRevealAtLocation:inSourceView:containerView:");
-            [_previewItemController aspect_hookSelector:_performCustomCommitSelector withOptions:AspectPositionAfter usingBlock:^() {
-                UIViewController *pred = [_previewItemController valueForKeyPath:@"presentedViewController"];
-                [pred aspect_hookSelector:NSSelectorFromString(@"_addRemoteView") withOptions:AspectPositionAfter usingBlock:^() {
-                    UIViewController *_remoteViewController = object_getIvar(pred, class_getInstanceVariable([pred class], "_remoteViewController"));
-                    
-                    [_remoteViewController aspect_hookSelector:@selector(viewDidLoad) withOptions:AspectPositionAfter usingBlock:^() {
-                        _remoteViewController.view.tintColor = wself.navigationController.navigationBar.tintColor;
-                    } error:NULL];
-                } error:NULL];
-                
-                NSArray *ddActions = [pred valueForKeyPath:@"ddActions"];
-                id openURLAction = [ddActions firstObject];
-                
-                [openURLAction aspect_hookSelector:NSSelectorFromString(@"perform") withOptions:AspectPositionInstead usingBlock:^ () {
-                    NSURL *_url = object_getIvar(openURLAction, class_getInstanceVariable([openURLAction class], "_url"));
-                    [wself loadURL:_url];
-                } error:NULL];
-                
-                id _lookupItem = object_getIvar(_previewItemController, class_getInstanceVariable([_class class], "_lookupItem"));
-                [_lookupItem aspect_hookSelector:NSSelectorFromString(@"commit") withOptions:AspectPositionInstead usingBlock:^() {
-                    NSURL *_url = object_getIvar(_lookupItem, class_getInstanceVariable([_lookupItem class], "_url"));
-                    [wself loadURL:_url];
-                } error:NULL];
-                [_lookupItem aspect_hookSelector:NSSelectorFromString(@"commitWithTransitionForPreviewViewController:inViewController:completion:") withOptions:AspectPositionInstead usingBlock:^() {
-                    NSURL *_url = object_getIvar(_lookupItem, class_getInstanceVariable([_lookupItem class], "_url"));
-                    [wself loadURL:_url];
-                } error:NULL];
-                /*
-                 UIWindow
-                 -UITransitionView
-                 --UIVisualEffectView
-                 ---_UIVisualEffectContentView
-                 ----UIView
-                 -----_UIPreviewActionSheetView
-                 */
-                /*
-                 for (UIView * transitionView in [UIApplication sharedApplication].keyWindow.subviews) {
-                 if ([transitionView isMemberOfClass:NSClassFromString(@"UITransitionView")]) {
-                 transitionView.tintColor = wself.navigationController.navigationBar.tintColor;
-                 for (UIView *__view in transitionView.subviews) {
-                 if ([__view isMemberOfClass:NSClassFromString(@"UIVisualEffectView")]) {
-                 for (UIView *___view in __view.subviews) {
-                 if ([___view isMemberOfClass:NSClassFromString(@"_UIVisualEffectContentView")]) {
-                 for (UIView *____view in ___view.subviews) {
-                 if ([____view isMemberOfClass:NSClassFromString(@"UIView")]) {
-                 __weak typeof(____view) w____view = ____view;
-                 [____view aspect_hookSelector:@selector(addSubview:) withOptions:AspectPositionAfter usingBlock:^() {
-                 for (UIView *actionSheet in w____view.subviews) {
-                 if ([actionSheet isMemberOfClass:NSClassFromString(@"_UIPreviewActionSheetView")]) {
-                 break;
-                 }
-                 }
-                 } error:NULL];
-                 }
-                 }break;
-                 }
-                 }break;
-                 }
-                 }break;
-                 }
-                 }
-                 */
-            } error:NULL];
-            break;
-        }
     }
 }
 

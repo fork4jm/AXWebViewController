@@ -8,7 +8,7 @@
 
 #import "TableViewController.h"
 #import "AXWebViewController.h"
-#import <AXPracticalHUD/AXPracticalHUD.h>
+#import <JMLibrary/ProgressHUD.h>
 
 @interface TableViewController () <UITextFieldDelegate>
 
@@ -41,7 +41,7 @@
             webVC.title = @"Swift.pdf";
             webVC.showsToolBar = NO;
             if (AX_WEB_VIEW_CONTROLLER_iOS9_0_AVAILABLE()) {
-                webVC.webView.allowsLinkPreview = YES;
+                webVC.webView.allowsLinkPreview = NO;
             }
             [self.navigationController pushViewController:webVC animated:YES];
         }
@@ -52,7 +52,7 @@
             webVC.showsToolBar = NO;
             // webVC.showsNavigationCloseBarButtonItem = NO;
             if (AX_WEB_VIEW_CONTROLLER_iOS9_0_AVAILABLE()) {
-                webVC.webView.allowsLinkPreview = YES;
+                webVC.webView.allowsLinkPreview = NO;
             }
             [self.navigationController pushViewController:webVC animated:YES];
         }
@@ -73,7 +73,7 @@
             webVC.showsBackgroundLabel = NO;
             // webVC.showsNavigationBackBarButtonItemTitle = NO;
             if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_9_0) {
-                webVC.webView.allowsLinkPreview = YES;
+                webVC.webView.allowsLinkPreview = NO;
             }
             [self.navigationController pushViewController:webVC animated:YES];
         } break;
@@ -81,7 +81,7 @@
             AXWebViewController *webVC = [[AXWebViewController alloc] initWithAddress:@"https://github.com/devedbox/AXWebViewController/releases/latest"];
             webVC.showsToolBar = NO;
             if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_9_0) {
-                webVC.webView.allowsLinkPreview = YES;
+                webVC.webView.allowsLinkPreview = NO;
             }
             [self.navigationController pushViewController:webVC animated:YES];
         } break;
@@ -110,9 +110,11 @@
 }
 
 - (IBAction)clearCache:(id)sender {
-    [[AXPracticalHUD sharedHUD] showNormalInView:self.navigationController.view text:@"清理缓存..." detail:nil configuration:NULL];
+    
+    [ProgressHUD showInfoWithStatus:@"清理缓存..."];
+    
     [AXWebViewController clearWebCacheCompletion:^{
-        [[AXPracticalHUD sharedHUD] hide:YES afterDelay:0.5 completion:NULL];
+        [ProgressHUD dismissWithDelay:0.5];
     }];
 }
 
@@ -129,7 +131,7 @@
         AXWebViewController *webVC = [[AXWebViewController alloc] initWithURL:URL];
         webVC.showsToolBar = NO;
         if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_9_0) {
-            webVC.webView.allowsLinkPreview = YES;
+            webVC.webView.allowsLinkPreview = NO;
         }
         [self.navigationController pushViewController:webVC animated:YES];
     }
