@@ -213,21 +213,6 @@ BOOL AX_WEB_VIEW_CONTROLLER_iOS10_0_AVAILABLE() { return AX_WEB_VIEW_CONTROLLER_
 
 #pragma clang diagnostic pop
 
-@interface UIScrollView (ContentOffsetHook)
-@end
-
-@implementation UIScrollView (ContentOffsetHook)
-+ (void)load {
-    Method original = class_getInstanceMethod(self.class, @selector(setContentOffset:));
-    Method target   = class_getInstanceMethod(self.class, @selector(ax_setContentOffset:));
-    method_exchangeImplementations(original, target);
-}
-
-- (void)ax_setContentOffset:(CGPoint)contentOffset {
-    [self ax_setContentOffset:contentOffset];
-}
-@end
-
 @implementation AXWebViewController
 #pragma mark - Life cycle
 - (instancetype)init {
