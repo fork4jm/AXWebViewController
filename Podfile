@@ -1,7 +1,9 @@
 platform :ios, '8.0'
 
 inhibit_all_warnings!
-target 'AXWebViewController' do
+target 'JMWebViewController' do
     pod 'NJKWebViewProgress'
     pod 'JMLibrary', :subspecs => ['ProgressHUD']
+    pod 'AXNavigationBackItemInjection'
 end
+

@@ -1,4 +1,5 @@
 PODS:
+  - AXNavigationBackItemInjection (0.0.2)
   - CocoaLumberjack (3.0.0):
     - CocoaLumberjack/Default (= 3.0.0)
     - CocoaLumberjack/Extensions (= 3.0.0)
@@ -18,22 +19,25 @@ PODS:
   - SVProgressHUD (2.0.4)
 
 DEPENDENCIES:
+  - AXNavigationBackItemInjection
   - JMLibrary/ProgressHUD
   - NJKWebViewProgress
 
 SPEC REPOS:
   https://github.com/cocoapods/specs.git:
+    - AXNavigationBackItemInjection
     - CocoaLumberjack
     - JMLibrary
     - NJKWebViewProgress
     - SVProgressHUD
 
 SPEC CHECKSUMS:
+  AXNavigationBackItemInjection: efe0446967f3cbcc85a9118decd1e145138912dd
   CocoaLumberjack: c823149bccc5519a9447aeb433be7b1212a7d6a5
   JMLibrary: b9af61d4aace036b6125c8befb5f6b23121185d9
   NJKWebViewProgress: f481fd424cb5ecc27eacae11b5397db92fba9a4d
   SVProgressHUD: bfde85ed6c573ea802b9cb37894ed9b629034f1b
 
-PODFILE CHECKSUM: 7f6d05d3696a9adeac0306065f3f7831737c1412
+PODFILE CHECKSUM: f8aea6e43c6bcaef085885cf4dd63b344d26fbec
 
 COCOAPODS: 1.6.0.beta.1
